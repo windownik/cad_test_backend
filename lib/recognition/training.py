@@ -78,12 +78,9 @@ def train_floor_plan_model(
     copy_best_to: str | Path | None = None,
 ) -> Path:
     """
-    Обучает YOLO segmentation-модель на датасете YOLOv8 TXT из папки models/.
+    Обучает YOLOv8n-seg на датасете YOLOv8 TXT из папки models/.
 
-    Датасет floor-plan.v1i.yolov8 содержит полигональную разметку (door, wall, window),
-    поэтому используется базовая модель yolov8n-seg.pt, а не detect-вариант.
-
-    При нехватке памяти уменьшите BATCH_SIZE (8 → 6 → 4) или IMAGE_SIZE (1024 → 640).
+    macOS (MPS): workers=0, amp=True, cache=False — без Swap и зависаний DataLoader.
 
     Returns:
         Путь к файлу best.pt (скопированному в models/floor_plan_best.pt по умолчанию).

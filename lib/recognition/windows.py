@@ -12,14 +12,12 @@ from ezdxf.layouts import BaseLayout
 from lib.common.io import resolve_dxf_path
 from lib.common.logging_config import logger
 from lib.converter.png_export import PngExportMeta
+from lib.recognition.constants import (
+    CLASS_LAYER_CONFIG,
+    INFERENCE_CLASS_IDS,
+    WINDOW_CLASS_ID,
+)
 from lib.recognition.coordinates import pixel_box_to_cad_vertices
-
-# ID классов из data.yaml датасета floor-plan.v1i.yolov8
-CLASS_LAYER_CONFIG: dict[int, tuple[str, int, str]] = {
-    2: ("AI_DOORS", 1, "door"),
-    3: ("AI_WALLS", 9, "wall"),
-    4: ("AI_WINDOWS", 5, "window"),
-}
 
 
 @dataclass(frozen=True)
@@ -45,6 +43,14 @@ class ObjectDetection:
 
 # Обратная совместимость
 WindowDetection = ObjectDetection
+
+
+def _resolve_class_ids(class_ids: set[int] | None) -> list[int]:
+    allowed = sorted(class_ids or set(INFERENCE_CLASS_IDS))
+    unknown = set(allowed) - set(CLASS_LAYER_CONFIG)
+    if unknown:
+        raise ValueError(f"Неизвестные class_id для инференса: {sorted(unknown)}")
+    return allowed
 
 
 def _ensure_layers(doc: Drawing, class_ids: set[int]) -> None:
@@ -73,7 +79,7 @@ def _run_yolo_on_png(
     class_ids: set[int] | None = None,
     confidence_threshold: float = 0.25,
 ) -> tuple[list[PngObjectDetection], object]:
-    """Запускает YOLO и возвращает детекции + сырой result для отрисовки."""
+    """Запускает YOLO с фильтром classes=[...] и возвращает детекции."""
     import cv2
     from ultralytics import YOLO
 
@@ -89,16 +95,20 @@ def _run_yolo_on_png(
     if image is None:
         raise ValueError(f"Не удалось прочитать изображение: {image_path}")
 
-    allowed_classes = class_ids or set(CLASS_LAYER_CONFIG.keys())
+    yolo_classes = _resolve_class_ids(class_ids)
     model = YOLO(str(model_file))
-    results = model(str(image_path), verbose=False)
+    results = model(
+        str(image_path),
+        classes=yolo_classes,
+        verbose=False,
+    )
     result = results[0]
 
     detections: list[PngObjectDetection] = []
     if result.boxes is not None:
         for box in result.boxes:
             class_id = int(box.cls[0])
-            if class_id not in allowed_classes:
+            if class_id not in CLASS_LAYER_CONFIG:
                 continue
 
             confidence = float(box.conf[0])
@@ -216,7 +226,7 @@ def detect_windows(
     model_path: str | Path,
     meta: PngExportMeta,
     *,
-    window_class_id: int = 4,
+    window_class_id: int = WINDOW_CLASS_ID,
     confidence_threshold: float = 0.25,
 ) -> list[ObjectDetection]:
     """Запускает YOLO и возвращает только окна."""
@@ -244,7 +254,7 @@ def detect_and_draw_objects(
     destination = Path(output_dxf_path).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    allowed_classes = class_ids or set(CLASS_LAYER_CONFIG.keys())
+    allowed_classes = class_ids or set(INFERENCE_CLASS_IDS)
     detections = detect_objects(
         png_path,
         model_path,
@@ -279,7 +289,7 @@ def detect_and_draw_windows(
     meta: PngExportMeta,
     output_dxf_path: str | Path,
     *,
-    window_class_id: int = 4,
+    window_class_id: int = WINDOW_CLASS_ID,
     confidence_threshold: float = 0.25,
     layer_name: str = "AI_WINDOWS",
     layer_color: int = 5,

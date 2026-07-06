@@ -19,9 +19,8 @@
       Результат: models/floor_plan_best.pt
 
   detect_objects_in_png(png_path)
-      Тест обученной модели на PNG: инференс + превью с bbox.
+      Тест модели на PNG: по умолчанию только двери и окна (classes=[2, 4]).
       Модуль: lib.recognition
-      Требует: models/floor_plan_best.pt
       Результат: *_detected.png
 
   detect_objects_in_dxf(path)
@@ -50,7 +49,7 @@ from lib.recognition import detect_objects_in_png
 # Входные файлы (можно передать аргументом командной строки)
 # ---------------------------------------------------------------------------
 
-IMAGE_FILE = "01_example_1_flor.png"
+IMAGE_FILE = "example2.png"
 MODEL_FILE = "models/floor_plan_best.pt"
 
 
@@ -73,7 +72,7 @@ if __name__ == "__main__":
 
     print(f"Превью: {preview_png}")
     print(f"Всего объектов: {len(detections)}")
-    for class_name in ("door", "wall", "window"):
+    for class_name in ("door", "window"):
         count = sum(1 for item in detections if item.class_name == class_name)
         print(f"  {class_name}: {count}")
 

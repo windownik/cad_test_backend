@@ -8,6 +8,7 @@ from typing import Any
 
 from lib.common.io import resolve_dxf_path
 from lib.converter.png_export import PngExportMeta, dxf_to_png
+from lib.recognition.constants import INFERENCE_CLASS_IDS, WINDOW_CLASS_ID
 from lib.recognition.windows import ObjectDetection, PngObjectDetection, detect_and_draw_objects, infer_objects_on_png
 
 # ---------------------------------------------------------------------------
@@ -58,15 +59,18 @@ def detect_objects_in_png(
     *,
     model_path: str | Path | None = None,
     output_png: str | Path | None = None,
+    class_ids: set[int] | None = None,
 ) -> tuple[Path, list[PngObjectDetection]]:
     """
-    Распознаёт двери, стены и окна на PNG.
+    Распознаёт объекты на PNG.
 
-    Возвращает путь к превью с bbox и список детекций. DXF не создаётся.
+    По умолчанию classes=[2, 4] — только двери и окна (без background и стен).
+    Для всех типов: class_ids={2, 3, 4}.
     """
     return infer_objects_on_png(
         png_path,
         model_path or MODEL_PATH,
+        class_ids=class_ids or set(INFERENCE_CLASS_IDS),
         confidence_threshold=CONFIDENCE_THRESHOLD,
         output_png=output_png,
     )
@@ -151,7 +155,7 @@ def detect_windows_in_dxf(
         model_path or MODEL_PATH,
         png_meta,
         output_dxf,
-        class_ids={4},
+        class_ids={WINDOW_CLASS_ID},
         confidence_threshold=CONFIDENCE_THRESHOLD,
     )
     return output_dxf, detections
